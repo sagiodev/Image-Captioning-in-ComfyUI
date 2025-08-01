@@ -102,47 +102,50 @@ class LoRACaptionLoad:
 
     CATEGORY = "LJRE/LORA"
 
-    def captionload(self, path, pattern='*.png'):
-        text=io_file_list(path,pattern)
-        text=list(map(os.path.basename,text))
-        text='\n'.join(text)
-		
-		#image loader
-        if not os.path.isdir(path):
-            raise FileNotFoundError(f"path '{path} cannot be found.'")
+    def captionload(self, path):
+        # Step 1: Bildnamen (namelist) erstellen
+        valid_extensions = ['.png', '.jpg', '.jpeg', '.webp']
         dir_files = os.listdir(path)
-        if len(dir_files) == 0:
-            raise FileNotFoundError(f"No files in path '{path}'.")
-
-        # Filter files by extension
-        valid_extensions = ['.png']
         dir_files = [f for f in dir_files if any(f.lower().endswith(ext) for ext in valid_extensions)]
+        namelist = '\n'.join(dir_files)
 
-        dir_files = [os.path.join(path, x) for x in dir_files]
+        # Step 2: Bilddaten laden
+        image_paths = [os.path.join(path, x) for x in dir_files]
+
+        if len(image_paths) == 0:
+            raise FileNotFoundError("No valid image files found in the directory.")
 
         images = []
-        image_count = 0
-
-        for image_path in dir_files:
-            if os.path.isdir(image_path) and os.path.ex:
+        for image_path in image_paths:
+            if os.path.isdir(image_path):
                 continue
-            i = Image.open(image_path)
-            i = ImageOps.exif_transpose(i)
-            image = i.convert("RGB")
-            image = np.array(image).astype(np.float32) / 255.0
-            image = torch.from_numpy(image)[None,]
-            images.append(image)
-            image_count += 1
+            try:
+                i = Image.open(image_path)
+                i = ImageOps.exif_transpose(i)
+                image = i.convert("RGB")
+                image = np.array(image).astype(np.float32) / 255.0
+                image = torch.from_numpy(image)[None,]
+                images.append(image)
+            except Exception as e:
+                print(f"Error loading image {image_path}: {e}")
 
+        if len(images) == 0:
+            raise FileNotFoundError("No valid images could be loaded.")
+
+        # Wenn mehrere Bilder, bring sie auf gleiche Größe
         if len(images) == 1:
-            return (images[0], 1)
-        elif len(images) > 1:
+            image1 = images[0]
+        else:
             image1 = images[0]
             for image2 in images[1:]:
                 if image1.shape[1:] != image2.shape[1:]:
-                    image2 = comfy.utils.common_upscale(image2.movedim(-1, 1), image1.shape[2], image1.shape[1], "bilinear", "center").movedim(1, -1)
+                    image2 = comfy.utils.common_upscale(
+                        image2.movedim(-1, 1),
+                        image1.shape[2],
+                        image1.shape[1],
+                        "bilinear",
+                        "center"
+                    ).movedim(1, -1)
                 image1 = torch.cat((image1, image2), dim=0)
-		
-		
-		
-        return text, path, image1, len(images)
+
+        return namelist, path, image1, len(images)
