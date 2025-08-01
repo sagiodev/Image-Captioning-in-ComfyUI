@@ -58,11 +58,13 @@ class LoRACaptionSave:
         return (text, { "ui": { "string": text } } )
         
     def generate_filename(self, path, namelistsplit, extension):
-        counter = 1
-        filename = f"{namelistsplit[counter-1]}{extension}"
+        counter = 0
+        filename = f"{namelistsplit[counter]}{extension}"
         while os.path.exists(os.path.join(path, filename)):
             counter += 1
-            filename = f"{namelistsplit[counter-1]}{extension}"
+            if counter >= len(namelistsplit):
+                raise ValueError(f"Some caption files (*{extension}) already exist in the image input folder. Delete them to regenerate.")
+            filename = f"{namelistsplit[counter]}{extension}"
 
         return filename
 
@@ -132,7 +134,7 @@ class LoRACaptionLoad:
         if len(images) == 0:
             raise FileNotFoundError("No valid images could be loaded.")
 
-        # Wenn mehrere Bilder, bring sie auf gleiche Größe
+        # Wenn mehrere Bilder, bring sie auf gleiche Grï¿½ï¿½e
         if len(images) == 1:
             image1 = images[0]
         else:
